@@ -1,0 +1,11 @@
+Simulation number,Total customers,Average Queue length,Maximum Queue length,Average Delay time,Maximum Delay time,Average Elevator time,Maximum Elevator time,Average Delivery time,Maximum Delivery time
+1,123,0,2,0,25,37,70,53,96,
+2,115,0,0,0,0,38,70,53,100,
+3,146,0,2,1,66,37,79,54,146,
+4,87,0,0,0,0,39,70,55,99,
+5,111,0,0,0,0,35,79,51,109,
+6,113,0,2,0,52,37,79,53,107,
+7,121,0,0,0,0,36,79,51,94,
+8,118,0,2,1,157,37,70,53,242,
+9,95,0,2,1,108,38,79,55,178,
+10,112,0,0,0,0,36,79,52,99,

@@ -2,7 +2,6 @@
 using namespace std;
 #define M 10000
 typedef vector<int> vi;
-typedef pair<vi, vi> pvi;
 
 mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 
@@ -20,7 +19,7 @@ double get_floor(int max_floor)
     return f;
 }
 
-pvi simulate_elevator()
+vi simulate_elevator()
 {
     ifstream fin("input.txt");
     double endtime;
@@ -55,9 +54,7 @@ pvi simulate_elevator()
     int mx, remain, quetotal;
     double TIME, DELTIME, ELEVTIME, MAXDEL, MAXELEV;
     int QUELEN;
-    double WQUELEN;
     double QUETIME, MAXQUE;
-    double MAXDELAY, AVGDELAY;
     int i, j, k;
     int N;
     int m;
@@ -66,7 +63,7 @@ pvi simulate_elevator()
 
     step_1:
 
-    DELTIME = ELEVTIME = MAXDEL = MAXELEV = QUELEN = WQUELEN = QUETIME = MAXQUE = 0;
+    DELTIME = ELEVTIME = MAXDEL = MAXELEV = QUELEN = QUETIME = MAXQUE = 0;
     quetotal = remain = 0;
     flag = false;
 
@@ -122,11 +119,8 @@ pvi simulate_elevator()
 
         between[i] = get_exponential_sample(mean_arrival_time);
         floor[i] = get_floor(n_floors);
-        WQUELEN += between[i]*que;
         TIME += between[i];
         delivery[i] = door_time;
-
-        //printf("%f\n", TIME);
 
         step_9:
 
@@ -215,7 +209,7 @@ pvi simulate_elevator()
         }
 
         retrn[j] = TIME+eldel[j];
-        operate[j] = operate[j]+eldel[j];
+        operate[j] = TIME+eldel[j];
 
         if(flag) goto step_31;
 
@@ -225,7 +219,7 @@ pvi simulate_elevator()
 
         step_19:
 
-        // printf("in queue\n");
+        printf("in queue\n");
 
         quecust = i;
         startque = TIME;
@@ -238,11 +232,8 @@ pvi simulate_elevator()
         between[i] = get_exponential_sample(mean_arrival_time);
         floor[i] = get_floor(n_floors);
         TIME += between[i];
-        WQUELEN += between[i]*que;
         arrive[i] = TIME;
         que++;
-
-        //printf("TIME = %f\n", TIME);
 
         step_21:
 
@@ -347,96 +338,46 @@ pvi simulate_elevator()
 
     step_34:
 
-    ELEVTIME = 0;
     for(m = 1; m <= limit; m++) ELEVTIME += elevator[m]/limit;
 
     step_35:
 
-    QUETIME = (quetotal > 0? QUETIME/quetotal: 0);
-    WQUELEN /= endtime;
-
-    MAXDELAY = AVGDELAY = 0;
-    for(m = 1; m <= N; m++) MAXDELAY = max(MAXDELAY, wait[m]), AVGDELAY += wait[m];
-    AVGDELAY /= N;
+    QUETIME = QUETIME/quetotal;
 
     step_36:
 
-    vi cus;
+    vi res;
 
-    cus.push_back(N);
-    cus.push_back(round(WQUELEN));
-    cus.push_back(QUELEN);
-    cus.push_back(round(AVGDELAY));
-    cus.push_back(round(MAXDELAY));
-    cus.push_back(round(ELEVTIME));
-    cus.push_back(round(MAXELEV));
-    cus.push_back(round(DELTIME));
-    cus.push_back(round(MAXDEL));
-
-    vi elev;
+    res.push_back(N);
+    res.push_back(round(DELTIME));
+    res.push_back(round(MAXDEL));
+    res.push_back(round(ELEVTIME));
+    res.push_back(round(MAXELEV));
+    res.push_back(QUELEN);
+    res.push_back(round(QUETIME));
+    res.push_back(round(MAXQUE));
     
-    for(k = 1; k <= n_elevators; k++) elev.push_back(round(operate[k]/endtime*100));
-    for(k = 1; k <= n_elevators; k++) elev.push_back(round((endtime-operate[k])/endtime*100));
-    for(k = 1; k <= n_elevators; k++) elev.push_back(stop[k]);
+    for(k = 1; k <= n_elevators; k++) res.push_back(round(stop[k]));
+    for(k = 1; k <= n_elevators; k++) res.push_back(round(operate[k]/endtime));
 
-    return {cus, elev};
+    //for(k = 1; k <= i; k++) printf("%d: %f\n", k, between[k]);
+
+    return res;
 }
 
 int main()
 {
-    ifstream fin("input.txt");
-    double endtime;
-    fin >> endtime;
-
-    int n_floors, n_elevators, capacity, batch_size;
-    fin >> n_floors >> n_elevators >> capacity >> batch_size;
-
-    double door_time, travel_time, open_time, close_time;
-    fin >> door_time >> travel_time >> open_time >> close_time;
-
-    double embark_time, disembark_time;
-    fin >> embark_time >> disembark_time;
-
-    double mean_arrival_time;
-    fin >> mean_arrival_time;
-    mean_arrival_time *= 60;
-
-    ofstream foutc("output_customers.csv");
-    foutc << "Simulation number";
-    foutc << ",Total customers";
-    foutc << ",Average Queue length";
-    foutc << ",Maximum Queue length";
-    foutc << ",Average Delay time";
-    foutc << ",Maximum Delay time";
-    foutc << ",Average Elevator time";
-    foutc << ",Maximum Elevator time";
-    foutc << ",Average Delivery time";
-    foutc << ",Maximum Delivery time\n";
-
-    ofstream foute("output_elevators.csv");
-    
-    foute << "Simulation number";
-    for(int j = 1; j <= n_elevators; j++) foute << ",Operation time " << j;
-    for(int j = 1; j <= n_elevators; j++) foute << ",Available time " << j;
-    for(int j = 1; j <= n_elevators; j++) foute << ",Stops " << j;
-    foute << "\n";
+    ofstream fout("output.txt");
 
     for(int iter = 1; iter <= 10; iter++)
     {
-        pvi p = simulate_elevator();
-        vi cus = p.first, elev = p.second;
-        
-        reverse(cus.begin(), cus.end());
-        cus.push_back(iter);
-        reverse(cus.begin(), cus.end());
-        reverse(elev.begin(), elev.end());
-        elev.push_back(iter);
-        reverse(elev.begin(), elev.end());
+        vi res = simulate_elevator();
+        reverse(res.begin(), res.end());
+        res.push_back(iter);
+        reverse(res.begin(), res.end());
 
-        for(int r: cus) foutc << r << ",";
-        foutc << "\n";
-        for(int r: elev) foute << r << ",";
-        foute << "\n";
+        for(int r: res) fout << r << "\t";
+        fout << "\n";
     }
 
     return 0;
