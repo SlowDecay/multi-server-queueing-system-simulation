@@ -20,6 +20,18 @@ double get_floor(int max_floor)
     return f;
 }
 
+int get_batch_size(int max_size)
+{
+    int ans = 0;
+    for(int i = 0; i < max_size; i++)
+    {
+        int p = uniform_int_distribution<int>(0, 1)(rng);
+        ans += p;
+    }
+
+    return ans+1;
+}
+
 pvi simulate_elevator()
 {
     ifstream fin("input.txt");
@@ -45,6 +57,9 @@ pvi simulate_elevator()
     int selvec[n_elevators+1][n_floors+1];
     int flrvec[n_elevators+1][n_floors+1];
     int occup[n_elevators+1];
+    int maxload[n_elevators+1];
+    int departures[n_elevators+1];
+    int loads[n_elevators+1];
     double retrn[n_elevators+1];
     int first[n_elevators+1];
     int quecust, que;
@@ -70,11 +85,28 @@ pvi simulate_elevator()
     quetotal = remain = 0;
     flag = false;
 
+    k = 1;
+    while(k+5 < M)
+    {
+        int batch_size = get_batch_size(6);
+
+        between[k] = get_exponential_sample(mean_arrival_time);
+        floor[k] = get_floor(n_floors);
+
+        for(i = k+1; i < k+batch_size; i++)
+        {
+            between[i] = 0;
+            floor[i] = get_floor(n_floors);
+        }
+
+        k += batch_size;
+    }
+
     step_2:
 
     i = 1;
-    between[i] = get_exponential_sample(mean_arrival_time);
-    floor[i] = get_floor(n_floors);
+    //between[i] = get_exponential_sample(mean_arrival_time);
+    //floor[i] = get_floor(n_floors);
     delivery[i] = door_time;
 
     step_3:
@@ -83,7 +115,8 @@ pvi simulate_elevator()
     for(k = 1; k <= n_elevators; k++)
     {
         retrn[k] = TIME;
-        stop[k] = operate[k] = 0;
+        stop[k] = operate[k] = maxload[k] = 0;
+        loads[k] = departures[k] = 0;
     }
     for(k = 1; k < M; k++) wait[k] = 0;
 
@@ -120,13 +153,11 @@ pvi simulate_elevator()
 
         i++;
 
-        between[i] = get_exponential_sample(mean_arrival_time);
-        floor[i] = get_floor(n_floors);
+        //between[i] = get_exponential_sample(mean_arrival_time);
+        //floor[i] = get_floor(n_floors);
         WQUELEN += between[i]*que;
         TIME += between[i];
         delivery[i] = door_time;
-
-        //printf("%f\n", TIME);
 
         step_9:
 
@@ -202,6 +233,11 @@ pvi simulate_elevator()
             if(selvec[j][m]) mx = m;
         }
 
+        if(occup[j] == capacity) maxload[j]++;
+
+        departures[j]++;
+        loads[j] += occup[j];
+
         eldel[j] = (mx-1)*travel_time*2;
 
         for(m = 1; m <= n_floors; m++)
@@ -225,8 +261,6 @@ pvi simulate_elevator()
 
         step_19:
 
-        // printf("in queue\n");
-
         quecust = i;
         startque = TIME;
         que = 1;
@@ -235,14 +269,12 @@ pvi simulate_elevator()
         step_20:
 
         i++;
-        between[i] = get_exponential_sample(mean_arrival_time);
-        floor[i] = get_floor(n_floors);
+        //between[i] = get_exponential_sample(mean_arrival_time);
+        //floor[i] = get_floor(n_floors);
         TIME += between[i];
         WQUELEN += between[i]*que;
         arrive[i] = TIME;
         que++;
-
-        //printf("TIME = %f\n", TIME);
 
         step_21:
 
@@ -375,8 +407,10 @@ pvi simulate_elevator()
 
     vi elev;
     
+    for(k = 1; k <= n_elevators; k++) elev.push_back(round(departures[k] == 0? 0: 1.0*loads[k]/departures[k]));
     for(k = 1; k <= n_elevators; k++) elev.push_back(round(operate[k]/endtime*100));
     for(k = 1; k <= n_elevators; k++) elev.push_back(round((endtime-operate[k])/endtime*100));
+    for(k = 1; k <= n_elevators; k++) elev.push_back(maxload[k]);
     for(k = 1; k <= n_elevators; k++) elev.push_back(stop[k]);
 
     return {cus, elev};
@@ -416,12 +450,17 @@ int main()
     ofstream foute("output_elevators.csv");
     
     foute << "Simulation number";
+    for(int j = 1; j <= n_elevators; j++) foute << ",Load size " << j;
     for(int j = 1; j <= n_elevators; j++) foute << ",Operation time " << j;
     for(int j = 1; j <= n_elevators; j++) foute << ",Available time " << j;
+    for(int j = 1; j <= n_elevators; j++) foute << ",Max loads " << j;
     for(int j = 1; j <= n_elevators; j++) foute << ",Stops " << j;
     foute << "\n";
 
-    for(int iter = 1; iter <= 10; iter++)
+    vi cus_total, elev_total;
+    int n_iterations = 10;
+
+    for(int iter = 1; iter <= n_iterations; iter++)
     {
         pvi p = simulate_elevator();
         vi cus = p.first, elev = p.second;
@@ -437,7 +476,24 @@ int main()
         foutc << "\n";
         for(int r: elev) foute << r << ",";
         foute << "\n";
+
+        if(iter == 1) cus_total = cus, elev_total = elev;
+        else
+        {
+            for(int i = 0; i < cus.size(); i++) cus_total[i] += cus[i];
+            for(int i = 0; i < elev.size(); i++) elev_total[i] += elev[i];
+        }
     }
+
+    foutc << "Average,";
+    for(int i = 1; i < cus_total.size(); i++)
+        foutc << round(1.0*cus_total[i]/n_iterations) << ",";
+    foutc << "\n";
+
+    foute << "Average,";
+    for(int i = 1; i < elev_total.size(); i++)
+        foute << round(1.0*elev_total[i]/n_iterations) << ",";
+    foute << "\n";
 
     return 0;
 }
